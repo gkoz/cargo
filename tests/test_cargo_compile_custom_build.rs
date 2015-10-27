@@ -1717,3 +1717,42 @@ test!(changing_an_override_invalidates {
 {running} `rustc [..] -L native=bar`
 ", compiling = COMPILING, running = RUNNING)));
 });
+
+test!(optional_dependencies_in_build_script {
+    let p = project("foo")
+        .file("Cargo.toml", r#"
+            [project]
+
+            name = "foo"
+            version = "0.5.0"
+            authors = ["wycats@example.com"]
+            build = "build.rs"
+
+            [features]
+            bar_feat = ["bar"]
+
+            [dependencies.bar]
+            path = "bar"
+            optional = true
+        "#)
+        .file("build.rs", r#"
+            extern crate bar;
+            fn main() {
+                bar::hello();
+            }
+        "#)
+        .file("src/lib.rs", "")
+        .file("bar/Cargo.toml", r#"
+            [project]
+
+            name = "bar"
+            version = "0.5.0"
+            authors = ["wycats@example.com"]
+        "#)
+        .file("bar/src/lib.rs", r#"
+            pub fn hello() {}
+        "#);
+
+    assert_that(p.cargo_process("build").arg("-v").arg("--features").arg("bar_feat"),
+                execs().with_status(0));
+});
